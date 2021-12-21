@@ -211,7 +211,7 @@ results, histories, cycle_losses = train_models(train_fy,  # Training data
                                                 patience=patience)
 ```
 
-The ensemble is then loaded and the associated transformation pipeline is saved in the weights file folder.
+The ensemble is then loaded and the associated transformation pipeline is saved along with the ensemble in the weights file folder.
 
 ```bash
 with open('train_weights/results_file.pkl', 'rb') as fin:   
@@ -224,3 +224,24 @@ name = f'weights/selected_set_0_{run_name}'
 
 ensemble.save(name, feats=train_fy.cont_feats+train_fy.cat_feats, overwrite=True)
 ```
+
+The partial dependence plots the trained models' response at any given mass point by keeping all input features constant and only varying input resonant mass. Therefore, for any given mass point model, we expect a low flat response for background and a peak at the given mass for signal events. This was checked for both background and signal (see plots below).
+
+```bash
+plot_1d_partial_dependence(m, train_df[train_df.gen_target==0], 'res_mass', train_feats=train_feats, y_lim=[0,1],
+                           input_pipe=train_fy.input_pipe, wgt_name='gen_weight', sample_sz=int(len(train_df[train_df.gen_target==0])/2),
+                           pdp_isolate_kargs={'cust_grid_points':masses}, n_clusters=5)
+                           
+for mass in sorted(train_df.res_mass.unique()):
+    df = train_df[(train_df.gen_target==1)&(train_df.res_mass==mass)]
+    print(f'Mass {lookup_mass(mass)}, N events {len(df)}, weight_sum {df.gen_weight.sum()}')
+    plot_1d_partial_dependence(m, df, 'res_mass', train_feats=train_feats, n_clusters=5, y_lim=[0,1],
+                               input_pipe=train_fy.input_pipe, wgt_name='gen_weight',
+                               pdp_isolate_kargs={'cust_grid_points':masses})
+```
+
+Background
+![image](https://user-images.githubusercontent.com/76540759/146951088-641e38c3-7ff2-4a76-9fe8-f6a6843fc87d.png)
+
+Signal (400 GeV)
+![image](https://user-images.githubusercontent.com/76540759/146951151-396b1272-bf18-47ef-b97e-25a81015a388.png)
