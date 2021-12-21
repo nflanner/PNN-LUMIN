@@ -395,6 +395,7 @@ plt.show()
 ```
 
 Numpy array predictions on 900 GeV (not used for training) signal events
+
 ![image](https://user-images.githubusercontent.com/76540759/146960750-9633dd6d-8a2e-4673-9b86-d4c491b32d23.png)
 
 Again, the class predictions come out as expected. Since all the events used were signal, we indeed expect all events to be pushed towards a class prediction of 1. Therefore, if the transformation pipeline is saved, then we can eliminate the preprocessing and conversion to HDF5 files steps by instead making predictions directly on a transformed a Numpy array.
