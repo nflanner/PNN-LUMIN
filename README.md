@@ -2,7 +2,7 @@
 
 LUMIN is a deep learning and data-analysis ecosystem for High Energy Particle Physics written by Giles Strong, see https://github.com/GilesStrong/lumin.
 
-Utilizing the PNN in LUMIN requires three distinct steps, importing, model training, and validation/testing, which I will walk through using the various notebooks within this repository. Additionally, I will show two methods of predicting on events that were not used for training - one using the same preprocessing methods shown in the Importing section, and one using a transformed Numpy array.
+Utilizing the PNN in LUMIN requires three distinct steps, importing, model training, and validation/testing, which I will walk through using the various notebooks within this repository. Additionally, I will show two methods of predicting on events that were not used for training - one using the same preprocessing methods shown in the Importing section, and one using a transformed Numpy array. Not every cell will be mentioned in this walk-through, please see the notes in each notebook for more detail on every cell.
 
 ## Importing
 
