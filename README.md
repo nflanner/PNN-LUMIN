@@ -100,7 +100,7 @@ add_bkg_res_mass(df_0)
 add_bkg_res_mass(df_1)
 ```
 
-Input transformation pipelines were then created for both DataFrames, and each DataFrame was copied (for validation) and transformed using the corresponding ensemble that they are associated to. Set_0_train and set_1_train will be used to train ensemble 0 and 1 respectively, so they are transformed via their respective transformation pipelines. To allow for full inference, each ensemble will validate on the opposite half of the events. Therefore, set_0_test and set_1_test must be transformed using the pipeline that corresponds to the opposite half of the data (input_pipe_1 and input_pipe0 respectively).
+Input transformation pipelines were then created for both DataFrames (saved as PKL files), and each DataFrame was copied (for validation) and transformed using the corresponding ensemble that they are associated to. Set_0_train and set_1_train will be used to train ensemble 0 and 1 respectively, so they are transformed via their respective transformation pipelines. To allow for full inference, each ensemble will validate on the opposite half of the events. Therefore, set_0_test and set_1_test must be transformed using the pipeline that corresponds to the opposite half of the data (input_pipe_1 and input_pipe0 respectively).
 
 ```bash
 input_pipe_0 = fit_input_pipe(df_0, cont_feats, PATH/f'input_pipe_0')
@@ -148,3 +148,44 @@ df2foldfile(df=set_1_test, n_folds=10,
             misc_feats=['gen_strat_key', 'res_mass_orig'],
             savename=PATH/'test_1', targ_type='int', strat_key='gen_strat_key')
 ```
+
+
+
+## Training
+
+notebooks: 
+https://github.com/nflanner/PNN-LUMIN/blob/main/selected_set_0_Rev4.ipynb
+https://github.com/nflanner/PNN-LUMIN/blob/main/selected_set_1_Rev4.ipynb
+
+After all training and test sets are saved, two ensembles of neural networks were trained using each half of the full set of events.
+
+Create a folder yielder object using the training set and associated input transformation pipeline.
+
+```bash
+train_fy = FoldYielder(PATH/'train_0.hdf5', input_pipe=PATH/'input_pipe_0.pkl')
+```
+
+The model can then be built by specifiying all desired hyperparameters and architecure. In this case, I left batch size as given in the example from Giles Strong and the objective was kept as classification. Cat_embedder is associated to categorical events such as channel, year, etc. and, therefore, was not utilized in this example since only one year and channel were used. The ideal body architecture was previosuly determined to be a dense fully-connected network, with a swish activation function, width of 25, depth of 3, and 0 dropout. Finally, the optimizer was kept to be Adam with an epsilon of 1e-8.
+
+```bash
+bs = 1024
+objective = 'classification'
+cat_embedder = CatEmbedder.from_fy(train_fy)
+
+body = partial(FullyConnected, act='swish',width=25,depth=3,dense=True, do=0)
+opt_args = {'opt':'adam', 'eps':1e-08}
+
+n_out = 1
+model_builder = ModelBuilder(objective, cont_feats=train_fy.cont_feats, n_out=n_out, cat_embedder=cat_embedder,
+                             body=body, opt_args=opt_args)
+Model(model_builder)
+```
+
+To determine the range of learning rate to be used for training, we take the bounds of learning rate to be such that the curve of loss versus learning rate is always negative. The lr_finder method will produce a plot of loss versus learning rate (see below) which was then used to manually determine the bounds of the training learning rate range. For exmaple, the range selected from the plot shown below was chosen to be [1e-3, 1e-2].
+
+```bash
+lr_finder = fold_lr_find(train_fy, model_builder, bs, lr_bounds=[1e-7,1e1])
+```
+
+![image](https://user-images.githubusercontent.com/76540759/146947985-56156ab5-ca3f-4fab-b53c-7329cfce9729.png)
+
