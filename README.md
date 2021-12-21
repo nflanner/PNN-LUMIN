@@ -189,3 +189,38 @@ lr_finder = fold_lr_find(train_fy, model_builder, bs, lr_bounds=[1e-7,1e1])
 
 ![image](https://user-images.githubusercontent.com/76540759/146947985-56156ab5-ca3f-4fab-b53c-7329cfce9729.png)
 
+Number of models, patience, and number of epochs were all left at the default values from the examples given by Giles Strong. callback partials and metric partials were also kept the same as given, but lr_range was taken from the previously mentioned lr_finder associated with our events. Train_models then trains an ensemble of 10 models using the specified hyperparameters and architecture, and plots each models' loss versus sub-epoch. The best performing model is then kept and results are saved as a PKL file in the train_weights file folder.
+
+```bash
+n_models = 10
+patience = 5
+n_epochs = 15
+
+cb_partials = [partial(OneCycle, lengths=(45, 90), lr_range=[1e-3, 1e-2], mom_range=(0.85, 0.95), interp='cosine')]
+metric_partials = [partial(AMS, n_total=250000, br=10, wgt_name='gen_orig_weight', main_metric=False)]
+
+from lumin.nn.training.train import train_models
+
+results, histories, cycle_losses = train_models(train_fy,  # Training data
+                                                n_models,  # Number of models to train
+                                                model_builder=model_builder,  # How to build models, losses, and optimisers
+                                                bs=bs,  # Batch size
+                                                cb_partials=cb_partials,  # List of uninitialised callbacks
+                                                metric_partials=metric_partials,  # Pass our evaluation metrics
+                                                n_epochs=n_epochs,  # Maximum number of epochs to train
+                                                patience=patience)
+```
+
+The ensemble is then loaded and the associated transformation pipeline is saved in the weights file folder.
+
+```bash
+with open('train_weights/results_file.pkl', 'rb') as fin:   
+    results = pickle.load(fin)
+    
+ensemble = Ensemble.from_results(results, n_models, model_builder, metric='loss')
+ensemble.add_input_pipe(train_fy.input_pipe)
+
+name = f'weights/selected_set_0_{run_name}'
+
+ensemble.save(name, feats=train_fy.cont_feats+train_fy.cat_feats, overwrite=True)
+```
