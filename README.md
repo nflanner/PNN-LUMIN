@@ -241,7 +241,9 @@ for mass in sorted(train_df.res_mass.unique()):
 ```
 
 Background
+
 ![image](https://user-images.githubusercontent.com/76540759/146951088-641e38c3-7ff2-4a76-9fe8-f6a6843fc87d.png)
 
 Signal (400 GeV)
+
 ![image](https://user-images.githubusercontent.com/76540759/146951151-396b1272-bf18-47ef-b97e-25a81015a388.png)
