@@ -2,14 +2,16 @@
 
 LUMIN is a deep learning and data-analysis ecosystem for High Energy Particle Physics written by Giles Strong, see https://github.com/GilesStrong/lumin.
 
-Utilizing the PNN in LUMIN requires three distinct steps, importing, model training, and validation/testing, which I will walk through using the various notebooks within this repository.
+Utilizing the PNN in LUMIN requires three distinct steps, importing, model training, and validation/testing, which I will walk through using the various notebooks within this repository. Additionally, I will show two methods of predicting on events that were not used for training - one using the same preprocessing methods shown in the Importing section, and one using a transformed Numpy array.
 
 ## Importing
 
 notebook:
 https://github.com/nflanner/PNN-LUMIN/blob/main/res_import_filtered_Rev4.ipynb
 
-First, we create a list of strings associated to all the resonant mass ROOT files used for training (I left out 900 GeV to allow for testing on a mass that was not used in the training).
+All events need to be uploaded to a pandas DataFrame, preprocessed for training, and saved as HDF5 files to train the PNN.
+
+A list of strings was created associated to all the resonant mass ROOT files used for training (I left out 900 GeV to allow for testing on a mass that was not used in the training).
 
 ```bash
 res_mass = [260, 270, 300, 350, 400, 450, 500, 550, 600, 650, 750, 800, 1000]
