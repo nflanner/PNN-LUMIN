@@ -267,7 +267,7 @@ set_0_fy = FoldYielder(PATH/'test_0.hdf5', input_pipe=PATH/'input_pipe_0.pkl')
 set_1_fy = FoldYielder(PATH/'test_1.hdf5', input_pipe=PATH/'input_pipe_1.pkl')
 ```
 
-For all masses, we then took a tuple of the ensemble, associated test set (opposite half), and transformation pipe, and madepredictions using the predict() method. To tell LUMIN that this is indeed a parameterized netowkr, we use the ParameterizedPrediction callback function which specifies the training features (train_feats), feature(s) to be parameterized (['res_mass']), and the transformed prediction point. For example, to predict on 400 GeV, the final kwarg in ParameterisedPrediction would be [preprocess_mass(400,pipe)] where the method preprocess_mass() transforms the 400 mass via the transformation pipeline, pipe. The predict() method then saves the predictions in the original folder yielder given as a kwarg.
+For all masses, we then took a tuple of the ensemble, associated test set (opposite half), and transformation pipe, and madepredictions using the predict() method. To tell LUMIN that this is indeed a parameterized netowkr, we use the ParameterizedPrediction callback function which specifies the training features (train_feats), feature(s) to be parameterized (['res_mass']), and the transformed prediction point. For example, to predict on 400 GeV, the final kwarg in ParameterisedPrediction would be [preprocess_mass(400,pipe)] where the method preprocess_mass() transforms the 400 mass via the transformation pipeline, pipe. The predict() method then saves the predictions in the original folder yielder given as a kwarg. Note that once the cell below is has been run and the folder yielder has prediction scores, it cannot be run again unless a new folder yielder is created via the importing/preprocessing procedure.
 
 ```bash
 mb = master_bar(masses)
@@ -325,3 +325,76 @@ plt.axis([250, 1010, 0.85, 1])
 PNN AUC score versus DNN
 
 ![image](https://user-images.githubusercontent.com/76540759/146955838-021106fb-0aba-47d8-8c5a-c36a5e6580c4.png)
+
+
+
+## Predictions on mass points not used in training (HDF5 method)
+
+notebook:
+https://github.com/nflanner/PNN-LUMIN/blob/main/res_import_filtered_untrained_Rev4.ipynb
+https://github.com/nflanner/PNN-LUMIN/blob/main/Import_Predict_FY.ipynb
+
+Predictions on mass points that were not used for training can be done in one of two ways: following the importing procedure with the unused mass point and making predictions on the imported folder yielder, or using a transformed Numpy array; this section focuses on the former.
+
+The res_import_filtered_untrained_Rev4.ipynb notebook follows the exact same steps as the previous import notebook but instead uses 900 GeV (which was not used during training) and saves the HDF5 files with a different name. 
+
+The Import_Predict_FY.ipynb notebook follows the exact same steps as the previous prediction notebook but only uses 900 GeV (...) and, again, produces a class prediction histogram and ROC plot at 900 GeV (see figures below).
+
+Class Prediction (900 GeV - not used in training)
+
+![image](https://user-images.githubusercontent.com/76540759/146959035-b4c2c257-5642-4f47-b8b4-7051321678e2.png)
+
+ROC plot (900 GeV - not used in training)
+
+![image](https://user-images.githubusercontent.com/76540759/146959096-eae77418-5529-4d5e-b843-4a2d75047458.png)
+
+Observing the plots above, the clear separation of signal and background coupled with the high AUC score shows that the PNN indeed discriminates between signal and background even for mass points not used in training.
+
+
+
+## Predictions on mass points not used in training (Numpy method)
+
+notebook:
+https://github.com/nflanner/PNN-LUMIN/blob/main/Import_Predict_npArray.ipynb
+
+The second way to predict on events not used in training is via a Numpy array. Similar to the importing method, all signal events for 900 GeV (not used in training) were imported into a pandas DataFrame. Note that no background events were included, only signal. Once the DataFrame was finished, we then converted it into two Numpy arrays based off even or odd event id (to allow for full inference) and the arrays were transformed using the transofrmation pipelines previously mentioned.
+
+```bash
+np_arr_0 = sig_df[::2].to_numpy()
+np_arr_1 = sig_df[1::2].to_numpy()
+
+with open(PATH/"input_pipe_0_untrained.pkl", 'rb') as pickle_file:
+    input_pipe_0 = pickle.load(pickle_file)
+
+with open(PATH/"input_pipe_1_untrained.pkl", 'rb') as pickle_file:
+    input_pipe_1 = pickle.load(pickle_file)
+    
+transformed_input_0 = np.hstack((input_pipe_0.transform(np_arr_0[:,:len(cont_feats)]), np_arr_0[:,len(cont_feats):]))
+transformed_input_1 = np.hstack((input_pipe_1.transform(np_arr_1[:,:len(cont_feats)]), np_arr_1[:,len(cont_feats):]))
+```
+
+Predictions were then made and saved into separate arrays using the ParameterisedPrediction() and predict() methods, and the two arrays were finally concatenated into ne final prediction array.
+
+```bash
+mass_param_0 = ParametrisedPrediction(train_feats, ['res_mass'], [preprocess_mass(900,ensemble_0.input_pipe)])
+mass_param_1 = ParametrisedPrediction(train_feats, ['res_mass'], [preprocess_mass(900,ensemble_1.input_pipe)])
+
+pred_0 = ensemble_0.predict(transformed_input_1, cbs=[mass_param_0])
+pred_1 = ensemble_1.predict(transformed_input_0, cbs=[mass_param_1])
+pred = np.concatenate((pred_0, pred_1), axis=0)
+```
+
+The prediction array was then visualized via a Numpy histogram as seen below.
+
+```bash
+bins = np.arange(0,1.1,0.05)
+
+hist,bins = np.histogram(pred,bins=bins)  
+plt.hist(pred, bins = bins, density=1) 
+plt.show()
+```
+
+Numpy array predictions on 900 GeV (not used for training) signal events
+![image](https://user-images.githubusercontent.com/76540759/146960750-9633dd6d-8a2e-4673-9b86-d4c491b32d23.png)
+
+Again, the class predictions come out as expected. Since all the events used were signal, we indeed expect all events to be pushed towards a class prediction of 1. Therefore, if the transformation pipeline is saved, then we can eliminate the preprocessing and conversion to HDF5 files steps by instead making predictions directly on a transformed a Numpy array.
