@@ -247,3 +247,81 @@ Background
 Signal (400 GeV)
 
 ![image](https://user-images.githubusercontent.com/76540759/146951151-396b1272-bf18-47ef-b97e-25a81015a388.png)
+
+The same procedure was then repeated using train_0.hdf5 and input_pipe_0.pkl.
+
+
+
+## Validation
+
+notebook:
+https://github.com/nflanner/PNN-LUMIN/blob/main/application_all_mass_Rev4.ipynb
+
+Finally, both trained ensembles are loaded into an Ensemble object, and both test sets are loaded as folder yielder objects.
+
+```bash
+ensemble_0 = Ensemble.from_save(f'weights/selected_set_0_{run_name}')
+ensemble_1 = Ensemble.from_save(f'weights/selected_set_1_{run_name}')
+
+set_0_fy = FoldYielder(PATH/'test_0.hdf5', input_pipe=PATH/'input_pipe_0.pkl')
+set_1_fy = FoldYielder(PATH/'test_1.hdf5', input_pipe=PATH/'input_pipe_1.pkl')
+```
+
+For all masses, we then took a tuple of the ensemble, associated test set (opposite half), and transformation pipe, and madepredictions using the predict() method. To tell LUMIN that this is indeed a parameterized netowkr, we use the ParameterizedPrediction callback function which specifies the training features (train_feats), feature(s) to be parameterized (['res_mass']), and the transformed prediction point. For example, to predict on 400 GeV, the final kwarg in ParameterisedPrediction would be [preprocess_mass(400,pipe)] where the method preprocess_mass() transforms the 400 mass via the transformation pipeline, pipe. The predict() method then saves the predictions in the original folder yielder given as a kwarg.
+
+```bash
+mb = master_bar(masses)
+for m in mb:
+    for e, fy_s, pipe in ((ensemble_0, set_1_fy, set_0_fy.input_pipe),
+                            (ensemble_1, set_0_fy, set_1_fy.input_pipe)):
+        mass_param = ParametrisedPrediction(train_feats, ['res_mass'], [preprocess_mass(m,pipe)])
+        e.predict(fy_s,cbs=[mass_param],verbose=False,
+                    pred_name=f'pred_mass_{m}')
+```
+
+Predictions from each half of the event dataset were then appended into one final DataFrame that includes all class predictions.
+
+```bash
+df = load_df(set_0_fy, 800).append(load_df(set_1_fy, 800), ignore_index=True); df.head()
+```
+
+All masses were then looped through, histograms were plotted to visualize class prediction for all events, and ROC curves produced. We expected that all signal events should be pushed towards a class prediction of 1 while all background events should be pushed towards a class prediction of 0. The figure below shows one such mass point class prediction and ROC curve and boasts a clear separation of signal and background. The AUC curve shows true versus false positive rate while varying the threshold of what is considered to be signal or baackground from 1 (no signal) to 0 (everything is considered signal). Therefore we want the area under the curve of the ROC plot to be close to 1.
+
+```bash
+roc_scores = []
+for mass in masses:
+    df = load_df(set_0_fy, mass).append(load_df(set_1_fy, mass), ignore_index=True)
+    print('mass: ', mass)
+    make_cp(df)
+    fpr, tpr, threshold = metrics.roc_curve(df.gen_target, df.pred)
+    roc_auc = metrics.auc(fpr, tpr)
+    roc_scores.append(roc_auc)
+    make_roc(fpr, tpr, roc_auc)
+```
+
+Class prediction ( 400 GeV)
+
+![image](https://user-images.githubusercontent.com/76540759/146955338-a6bc5377-fe46-4cbc-b3d2-cf4dd0a4383b.png)
+
+ROC Curve (400 GeV)
+
+![image](https://user-images.githubusercontent.com/76540759/146955391-c7d5ef68-6979-4c77-b086-e328895f56e5.png)
+
+Finally, the PNN's AUC scores were compared at all mass points to that of a singley-trained DNN (previously recorded), plot seen below.
+
+```bash
+mass = [260, 270, 300, 350, 400, 450, 500, 550, 600, 650, 750, 800, 1000]
+SNN_AUC = [0.93, 0.89, 0.88, 0.90, 0.91, 0.92, 0.93, 0.95, 0.96, 0.97, 0.97, 0.98, 0.98]
+
+single, = plt.plot(mass, SNN_AUC, 'b', Label='Single DNN')
+parameterized, = plt.plot(masses, roc_scores, 'r', Label='Parameterized DNN')
+
+plt.legend(handles=[single, parameterized])
+plt.xlabel('Resonant Mass')
+plt.ylabel('AUC Score')
+plt.axis([250, 1010, 0.85, 1])
+```
+
+PNN AUC score versus DNN
+
+![image](https://user-images.githubusercontent.com/76540759/146955838-021106fb-0aba-47d8-8c5a-c36a5e6580c4.png)
